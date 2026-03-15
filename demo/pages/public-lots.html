@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>拍品公示 - 拍卖系统 Demo</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container py-4">
+    <div class="demo-nav d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <h5 class="mb-0">2. 拍品公示</h5>
+      <a href="../index.html" class="btn btn-outline-secondary btn-sm">返回首页</a>
+    </div>
+
+    <p class="text-muted small">仅展示状态为「已公示」或「拍卖中」且处于公示期内的拍品。</p>
+
+    <div class="row g-3" id="lotsList"></div>
+
+    <div id="lotDetail" class="mt-4 d-none">
+      <hr>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 id="detailTitle"></h5>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="showList()">返回列表</button>
+      </div>
+      <div class="row">
+        <div class="col-md-4">
+          <img id="detailImage" src="" alt="" class="img-fluid rounded">
+        </div>
+        <div class="col-md-8">
+          <p id="detailDesc" class="text-muted"></p>
+          <ul class="list-unstyled">
+            <li><strong>分类：</strong><span id="detailCategory"></span></li>
+            <li><strong>起拍价：</strong><span id="detailStartPrice"></span></li>
+            <li><strong>拍卖时间：</strong><span id="detailAuctionTime"></span></li>
+            <li><strong>保证金：</strong>底价的 <span id="detailDepositRate"></span></li>
+          </ul>
+          <a id="detailRegisterLink" href="#" class="btn btn-primary">竞价报名</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/mock-data.js"></script>
+  <script>
+    function getPublicLots() {
+      return MockData.lots.filter(l => l.status === 'published' || l.status === 'auction');
+    }
+
+    function renderList() {
+      const lots = getPublicLots();
+      const container = document.getElementById('lotsList');
+      const detail = document.getElementById('lotDetail');
+      detail.classList.add('d-none');
+      container.classList.remove('d-none');
+      container.innerHTML = lots.map(lot => `
+        <div class="col-md-6 col-lg-4">
+          <div class="card h-100 lot-card shadow-sm">
+            <img src="${lot.image}" class="card-img-top" alt="${lot.name}">
+            <div class="card-body">
+              <h6 class="card-title">${lot.name}</h6>
+              <p class="card-text small text-muted">${lot.category} · 起拍价 ¥${(lot.startPrice || 0).toLocaleString()}</p>
+              <p class="card-text small">拍卖时间：${lot.auctionStart} - ${lot.auctionEnd}</p>
+              <button class="btn btn-outline-primary btn-sm" onclick="showDetail(${lot.id})">查看详情</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function showDetail(id) {
+      const lot = MockData.lots.find(l => l.id === id);
+      if (!lot) return;
+      document.getElementById('lotsList').classList.add('d-none');
+      document.getElementById('lotDetail').classList.remove('d-none');
+      document.getElementById('detailTitle').textContent = lot.name;
+      document.getElementById('detailImage').src = lot.image;
+      document.getElementById('detailImage').alt = lot.name;
+      document.getElementById('detailDesc').textContent = lot.desc || '暂无描述';
+      document.getElementById('detailCategory').textContent = lot.category;
+      document.getElementById('detailStartPrice').textContent = '¥' + (lot.startPrice || 0).toLocaleString();
+      document.getElementById('detailAuctionTime').textContent = lot.auctionStart + ' 至 ' + lot.auctionEnd;
+      document.getElementById('detailDepositRate').textContent = (lot.depositRate * 100) + '%';
+      document.getElementById('detailRegisterLink').href = 'register.html?lotId=' + lot.id;
+    }
+
+    function showList() {
+      renderList();
+    }
+
+    renderList();
+  </script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>拍卖结果汇总及发布 - 拍卖系统 Demo</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container py-4">
+    <div class="demo-nav d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <h5 class="mb-0">5. 拍卖结果汇总及发布</h5>
+      <a href="../index.html" class="btn btn-outline-secondary btn-sm">返回首页</a>
+    </div>
+
+    <div class="mb-3">
+      <button class="btn btn-outline-success btn-sm" onclick="exportCsv()">导出 CSV</button>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>拍品</th>
+            <th>买受人</th>
+            <th>成交价</th>
+            <th>落槌时间</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody id="resultsTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/mock-data.js"></script>
+  <script src="../js/auth.js"></script>
+  <script>
+    Auth.requireRole('admin');
+    function render() {
+      const tbody = document.getElementById('resultsTableBody');
+      tbody.innerHTML = MockData.results.map(r => `
+        <tr>
+          <td>${r.lotName}</td>
+          <td>${r.isUnsold ? '—' : r.winnerName}</td>
+          <td>${r.isUnsold ? '—' : '¥' + r.price.toLocaleString()}</td>
+          <td>${r.soldAt}</td>
+          <td>${r.isUnsold ? '<span class="badge bg-danger">流拍</span>' : '<span class="badge bg-success">已成交</span>'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function exportCsv() {
+      const headers = ['拍品', '买受人', '成交价', '落槌时间', '状态'];
+      const rows = MockData.results.map(r => [
+        r.lotName,
+        r.isUnsold ? '' : r.winnerName,
+        r.isUnsold ? '' : r.price,
+        r.soldAt,
+        r.isUnsold ? '流拍' : '已成交'
+      ]);
+      const csv = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '拍卖结果_' + new Date().toISOString().slice(0, 10) + '.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    render();
+  </script>
+</body>
+</html>

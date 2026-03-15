@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>签订成交书 - 拍卖系统 Demo</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container py-4">
+    <div class="demo-nav d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <h5 class="mb-0">6. 签订成交书</h5>
+      <a href="../index.html" class="btn btn-outline-secondary btn-sm">返回首页</a>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">选择成交记录</label>
+      <select class="form-select" id="contractSelect">
+        <option value="">-- 请选择 --</option>
+      </select>
+    </div>
+
+    <div id="contractPanel" class="d-none">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>成交书</span>
+          <span id="contractStatus" class="badge bg-secondary">待签署</span>
+        </div>
+        <div class="card-body">
+          <div id="contractContent" class="small"></div>
+          <hr>
+          <div id="contractActions">
+            <button class="btn btn-primary" onclick="signContract()">确认签署</button>
+          </div>
+          <div id="contractSigned" class="text-success d-none">已签署于 <span id="signedAt"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/mock-data.js"></script>
+  <script src="../js/auth.js"></script>
+  <script>
+    Auth.requireRole('admin');
+    function initSelect() {
+      const sel = document.getElementById('contractSelect');
+      const list = MockData.contracts.filter(c => MockData.results.some(r => r.id === c.resultId && !r.isUnsold));
+      sel.innerHTML = '<option value="">-- 请选择 --</option>' + list.map(c => `<option value="${c.id}">${c.lotName} - ${c.winnerName} - ¥${c.price.toLocaleString()}</option>`).join('');
+      sel.addEventListener('change', onContractChange);
+      if (list.length) sel.selectedIndex = 1;
+      onContractChange();
+    }
+
+    function onContractChange() {
+      const id = document.getElementById('contractSelect').value;
+      const panel = document.getElementById('contractPanel');
+      if (!id) {
+        panel.classList.add('d-none');
+        return;
+      }
+      const c = MockData.contracts.find(x => x.id === parseInt(id, 10));
+      if (!c) return;
+      panel.classList.remove('d-none');
+      document.getElementById('contractContent').innerHTML = `
+        <p><strong>拍品：</strong>${c.lotName}</p>
+        <p><strong>买受人：</strong>${c.winnerName}</p>
+        <p><strong>成交价：</strong>¥${c.price.toLocaleString()}</p>
+        <p><strong>付款与交割期限：</strong>${c.paymentDeadline} 前</p>
+        <p class="text-muted">佣金/费用、争议解决等按《竞买须知》约定。</p>
+      `;
+      const statusBadge = document.getElementById('contractStatus');
+      const actions = document.getElementById('contractActions');
+      const signed = document.getElementById('contractSigned');
+      if (c.signed) {
+        statusBadge.textContent = '已签署';
+        statusBadge.className = 'badge bg-success';
+        actions.classList.add('d-none');
+        signed.classList.remove('d-none');
+        document.getElementById('signedAt').textContent = c.signedAt || '—';
+      } else {
+        statusBadge.textContent = '待签署';
+        statusBadge.className = 'badge bg-secondary';
+        actions.classList.remove('d-none');
+        signed.classList.add('d-none');
+      }
+    }
+
+    function signContract() {
+      const id = parseInt(document.getElementById('contractSelect').value, 10);
+      const c = MockData.contracts.find(x => x.id === id);
+      if (c && !c.signed) {
+        c.signed = true;
+        c.signedAt = new Date().toLocaleString('zh-CN');
+      }
+      onContractChange();
+    }
+
+    initSelect();
+  </script>
+</body>
+</html>

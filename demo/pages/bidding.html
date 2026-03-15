@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>竞价 - 拍卖系统 Demo</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container py-4">
+    <div class="demo-nav d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <h5 class="mb-0">4. 竞价</h5>
+      <a href="../index.html" class="btn btn-outline-secondary btn-sm">返回首页</a>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">选择拍品（拍卖中）</label>
+      <select class="form-select" id="lotSelect">
+        <option value="">-- 请选择 --</option>
+      </select>
+    </div>
+
+    <div id="biddingPanel" class="d-none">
+      <div class="alert alert-info py-2 d-none" id="adminMonitorHint">您正在以管理员身份监控，仅可查看当前价与出价记录，不可出价。</div>
+      <div class="alert alert-warning py-2 d-none" id="qualifyHint"></div>
+      <div class="card mb-3">
+        <div class="card-body">
+          <h5 id="bidLotName"></h5>
+          <p class="mb-1">拍卖时间：<span id="bidAuctionTime"></span></p>
+          <p class="mb-0 small text-muted">加价幅度：¥<span id="bidMinIncrement"></span></p>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-5">
+          <div class="card bg-light">
+            <div class="card-body text-center">
+              <p class="text-muted mb-0 small">当前最高价</p>
+              <p class="display-6 text-primary mb-0" id="currentPrice">¥0</p>
+              <p class="small text-muted mt-1">起拍价：¥<span id="startPrice">0</span></p>
+            </div>
+          </div>
+          <div class="card mt-3" id="bidFormCard">
+            <div class="card-header">出价 <span class="badge bg-secondary ms-2 d-none" id="monitorOnlyHint">管理员仅可查看</span></div>
+            <div class="card-body">
+              <p class="small text-muted">出价需 ≥ 当前最高价 + 加价幅度；已登记且保证金有效方可出价。</p>
+              <div class="input-group mb-2">
+                <span class="input-group-text">¥</span>
+                <input type="number" class="form-control" id="bidAmount" placeholder="出价金额" min="0">
+              </div>
+              <button class="btn btn-primary w-100" onclick="submitBid()">提交出价</button>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-7">
+          <div class="card">
+            <div class="card-header">出价记录</div>
+            <div class="card-body p-0">
+              <ul class="list-group list-group-flush" id="bidsList"></ul>
+              <div id="bidsEmpty" class="text-center text-muted py-4 small d-none">暂无出价，当前按起拍价起拍</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="noLot" class="alert alert-info d-none">当前没有进行中的拍卖，或请从列表选择拍品。</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/mock-data.js"></script>
+  <script src="../js/auth.js"></script>
+  <script>
+    Auth.requireRole('adminOrBidder'); // 管理员可监控，竞拍人可出价
+    function getAuctionLots() {
+      return MockData.lots.filter(l => l.status === 'auction');
+    }
+
+    function initLotSelect() {
+      const sel = document.getElementById('lotSelect');
+      const lots = getAuctionLots();
+      sel.innerHTML = '<option value="">-- 请选择 --</option>' + lots.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+      sel.addEventListener('change', onLotChange);
+      if (lots.length) sel.selectedIndex = 1;
+      onLotChange();
+    }
+
+    function onLotChange() {
+      const id = document.getElementById('lotSelect').value;
+      const panel = document.getElementById('biddingPanel');
+      const noLot = document.getElementById('noLot');
+      if (!id) {
+        panel.classList.add('d-none');
+        noLot.classList.remove('d-none');
+        return;
+      }
+      const lot = MockData.lots.find(l => l.id === parseInt(id, 10));
+      if (!lot) {
+        panel.classList.add('d-none');
+        noLot.classList.remove('d-none');
+        return;
+      }
+      panel.classList.remove('d-none');
+      noLot.classList.add('d-none');
+      var qualHint = document.getElementById('qualifyHint');
+      if (qualHint) {
+        if (Auth.isBidder() && !hasApprovedDeposit(lot.id)) {
+          qualHint.classList.remove('d-none');
+          qualHint.textContent = '您尚未取得该拍品竞拍资格，请先完成竞价报名并等待管理员审核通过。';
+        } else {
+          qualHint.classList.add('d-none');
+        }
+      }
+      const bidFormCard = document.getElementById('bidFormCard');
+      const monitorHint = document.getElementById('monitorOnlyHint');
+      const adminMonitorHint = document.getElementById('adminMonitorHint');
+      if (Auth.isBidder()) {
+        if (bidFormCard) bidFormCard.classList.remove('d-none');
+        if (monitorHint) monitorHint.classList.add('d-none');
+        if (adminMonitorHint) adminMonitorHint.classList.add('d-none');
+      } else {
+        if (bidFormCard) bidFormCard.classList.add('d-none');
+        if (monitorHint) monitorHint.classList.remove('d-none');
+        if (adminMonitorHint) adminMonitorHint.classList.remove('d-none');
+      }
+      document.getElementById('bidLotName').textContent = lot.name;
+      document.getElementById('bidAuctionTime').textContent = lot.auctionStart + ' - ' + lot.auctionEnd;
+      document.getElementById('bidMinIncrement').textContent = (lot.minIncrement || 0).toLocaleString();
+      document.getElementById('startPrice').textContent = (lot.startPrice || 0).toLocaleString();
+      document.getElementById('bidAmount').min = (getCurrentPrice(lot.id) + (lot.minIncrement || 0));
+      document.getElementById('bidAmount').placeholder = '最低 ¥' + (getCurrentPrice(lot.id) + (lot.minIncrement || 0)).toLocaleString();
+      refreshPriceAndBids(lot.id);
+    }
+
+    function refreshPriceAndBids(lotId) {
+      const lot = getLotById(lotId);
+      if (!lot) return;
+      const current = getCurrentPrice(lotId);
+      document.getElementById('currentPrice').textContent = '¥' + current.toLocaleString();
+      const bids = getBidsByLotId(lotId);
+      const ul = document.getElementById('bidsList');
+      const empty = document.getElementById('bidsEmpty');
+      if (!bids.length) {
+        ul.innerHTML = '';
+        empty.classList.remove('d-none');
+      } else {
+        empty.classList.add('d-none');
+        ul.innerHTML = bids.map(b => `
+          <li class="list-group-item d-flex justify-content-between">
+            <span>${b.bidderName}</span>
+            <span class="text-primary">¥${b.amount.toLocaleString()}</span>
+            <span class="small text-muted">${b.time}</span>
+          </li>
+        `).join('');
+      }
+      document.getElementById('bidAmount').min = current + (lot.minIncrement || 0);
+    }
+
+    function hasApprovedDeposit(lotId) {
+      var user = Auth.getCurrentUser();
+      if (!user || user.role !== 'bidder') return true;
+      return MockData.deposits.some(function(d) {
+        return d.lotId === lotId && (d.bidderId === user.id || d.bidderName === user.name) && d.status === 'approved';
+      });
+    }
+
+    function submitBid() {
+      const lotId = parseInt(document.getElementById('lotSelect').value, 10);
+      const amount = parseInt(document.getElementById('bidAmount').value, 10);
+      const lot = MockData.lots.find(l => l.id === lotId);
+      if (!lot || !amount) {
+        alert('请选择拍品并输入有效出价');
+        return;
+      }
+      if (!hasApprovedDeposit(lotId)) {
+        alert('您尚未取得该拍品竞拍资格，请先完成竞价报名并等待管理员审核通过。');
+        return;
+      }
+      const minNext = getCurrentPrice(lotId) + (lot.minIncrement || 0);
+      if (amount < lot.startPrice) {
+        alert('出价不得低于起拍价 ¥' + lot.startPrice.toLocaleString());
+        return;
+      }
+      if (amount < minNext) {
+        alert('出价需不低于当前最高价 + 加价幅度，即 ¥' + minNext.toLocaleString());
+        return;
+      }
+      const newId = (MockData.bids.length ? Math.max(...MockData.bids.map(b => b.id)) : 0) + 1;
+      var user = Auth.getCurrentUser();
+      var bidderId = (user && user.id) ? user.id : 1;
+      var bidderName = (user && user.name) ? user.name : '当前用户';
+      MockData.bids.push({
+        id: newId, lotId, bidderId: bidderId, bidderName: bidderName, amount, time: new Date().toLocaleString('zh-CN')
+      });
+      document.getElementById('bidAmount').value = '';
+      refreshPriceAndBids(lotId);
+    }
+
+    initLotSelect();
+  </script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>竞价报名审核 - 拍卖系统 Demo</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container py-4">
+    <div class="demo-nav d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <h5 class="mb-0">竞价报名审核</h5>
+      <a href="../index.html" class="btn btn-outline-secondary btn-sm">返回首页</a>
+    </div>
+    <p class="text-muted small">保证金到账后，由管理员审核通过后竞拍人即可取得该拍品竞拍资格。</p>
+
+    <ul class="nav nav-tabs mb-3" id="filterTab" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" data-filter="pending_review" type="button">待审核</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" data-filter="approved" type="button">已通过</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" data-filter="rejected" type="button">已拒绝</button>
+      </li>
+    </ul>
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>流水号</th>
+            <th>拍品</th>
+            <th>竞拍人</th>
+            <th>保证金金额</th>
+            <th>到账时间</th>
+            <th>状态</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="approveTableBody"></tbody>
+      </table>
+    </div>
+    <div id="emptyHint" class="text-center text-muted py-4 small d-none">暂无该状态下的报名记录</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/mock-data.js"></script>
+  <script src="../js/auth.js"></script>
+  <script>
+    Auth.requireRole('admin');
+    var currentFilter = 'pending_review';
+
+    function statusBadge(s) {
+      if (s === 'pending_review') return '<span class="badge bg-warning text-dark">待审核</span>';
+      if (s === 'approved') return '<span class="badge bg-success">已通过</span>';
+      if (s === 'rejected') return '<span class="badge bg-danger">已拒绝</span>';
+      if (s === 'refund_pending') return '<span class="badge bg-info">已通过(待退款)</span>';
+      if (s === 'refunded') return '<span class="badge bg-secondary">已通过(已退款)</span>';
+      return '<span class="badge bg-secondary">' + (s || '') + '</span>';
+    }
+
+    function render() {
+      var list = MockData.deposits.filter(function(d) {
+        if (currentFilter === 'pending_review') return d.status === 'pending_review';
+        if (currentFilter === 'approved') return d.status === 'approved' || d.status === 'refund_pending' || d.status === 'refunded';
+        if (currentFilter === 'rejected') return d.status === 'rejected';
+        return false;
+      });
+      var tbody = document.getElementById('approveTableBody');
+      var emptyHint = document.getElementById('emptyHint');
+      if (!list.length) {
+        tbody.innerHTML = '';
+        emptyHint.classList.remove('d-none');
+        return;
+      }
+      emptyHint.classList.add('d-none');
+      tbody.innerHTML = list.map(function(d) {
+        var op = '';
+        if (d.status === 'pending_review') {
+          op = '<button class="btn btn-sm btn-success me-1" onclick="approve(' + d.id + ')">通过</button><button class="btn btn-sm btn-outline-danger" onclick="reject(' + d.id + ')">拒绝</button>';
+        } else if (d.status === 'approved' || d.status === 'refund_pending' || d.status === 'refunded') {
+          op = d.reviewedAt ? '审核于 ' + d.reviewedAt : '—';
+        } else if (d.status === 'rejected') {
+          op = d.reviewedAt ? '拒绝于 ' + d.reviewedAt : '—';
+        } else {
+          op = '—';
+        }
+        return '<tr><td>' + (d.serialNo || '') + '</td><td>' + d.lotName + '</td><td>' + d.bidderName + '</td><td>¥' + (d.amount || 0).toLocaleString() + '</td><td>' + (d.paidAt || '') + '</td><td>' + statusBadge(d.status) + '</td><td>' + op + '</td></tr>';
+      }).join('');
+    }
+
+    function approve(id) {
+      var d = MockData.deposits.find(function(x) { return x.id === id; });
+      if (d && d.status === 'pending_review') {
+        d.status = 'approved';
+        d.reviewedAt = new Date().toLocaleString('zh-CN');
+      }
+      render();
+    }
+
+    function reject(id) {
+      var d = MockData.deposits.find(function(x) { return x.id === id; });
+      if (d && d.status === 'pending_review') {
+        d.status = 'rejected';
+        d.reviewedAt = new Date().toLocaleString('zh-CN');
+      }
+      render();
+    }
+
+    document.querySelectorAll('#filterTab [data-filter]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        currentFilter = this.getAttribute('data-filter');
+        document.querySelectorAll('#filterTab .nav-link').forEach(function(l) { l.classList.remove('active'); });
+        this.classList.add('active');
+        render();
+      });
+    });
+
+    render();
+  </script>
+</body>
+</html>

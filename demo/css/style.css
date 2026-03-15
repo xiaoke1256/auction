@@ -1,0 +1,28 @@
+/* 拍卖系统 Demo 样式 */
+.hover-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+.hover-card {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+/* 状态标签 */
+.badge-draft { background-color: #6c757d; }
+.badge-pending { background-color: #fd7e14; }
+.badge-published { background-color: #0d6efd; }
+.badge-auction { background-color: #198754; }
+.badge-sold { background-color: #198754; }
+.badge-unsold { background-color: #dc3545; }
+.badge-refund-pending { background-color: #fd7e14; }
+.badge-refund-done { background-color: #198754; }
+
+/* 页面通用 */
+.demo-nav {
+  margin-bottom: 1.5rem;
+}
+.lot-card img {
+  object-fit: cover;
+  height: 160px;
+  background: #f0f0f0;
+}
